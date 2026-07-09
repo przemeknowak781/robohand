@@ -1,0 +1,25 @@
+{
+  "name": "robohand",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Parametric tendon-driven humanoid robot hand simulator (3D, ML-ready)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "demo:headless": "tsx scripts/headless-demo.ts"
+  },
+  "dependencies": {
+    "lil-gui": "^0.19.2",
+    "three": "^0.166.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/three": "^0.166.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.3"
+  }
+}

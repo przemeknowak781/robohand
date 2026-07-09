@@ -1,0 +1,55 @@
+---
+name: verify
+description: Build, run, and drive the RoboHand tendon-hand simulator to verify changes end-to-end (browser GUI + headless physics core).
+---
+
+# Verifying RoboHand
+
+## Build & launch
+
+```bash
+npm install                # once
+npm run build              # vite build → dist/
+npm run preview -- --port 4173 --host 127.0.0.1 &   # serve dist/
+```
+
+Dev server alternative: `npm run dev` (port 5173).
+
+## Surfaces
+
+1. **Browser GUI** (primary): drive with playwright-core against the
+   preinstalled Chromium:
+   ```js
+   chromium.launch({
+     executablePath: '/opt/pw-browsers/chromium',
+     args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
+   })
+   ```
+   Software GL gives ~15–140 fps — low fps here is the renderer, not a
+   regression.
+2. **Headless physics core**: `npm run demo:headless` — runs the sim in Node,
+   prints tension telemetry, exits non-zero on non-finite state or zero
+   tension (built-in sanity checks).
+
+## Flows worth driving
+
+- Click the **Fist** preset button → within ~2.5 s expect
+  `max(sim.tension) ≈ 39.6 N` and mean joint angle ≈ 86° (deterministic —
+  identical values in headless and browser runs at default params).
+- `window.robohand` exposes `{ sim, recorder, setCurls }` for programmatic
+  driving; `sim.step(action[14])` is the ML entry point.
+- **Data / ML folder**: record start → stop → "download dataset (.jsonl)";
+  intercept with Playwright's `download` event. Line 1 is
+  `{"type":"spec",...}` with `actionSpace.shape[0] === 14`.
+- **Hand geometry → global scale**: fill the number input + Enter
+  (onFinishChange) → live rebuild must preserve pose/time and stay finite.
+- Robustness probe: `sim.step([NaN, Infinity, -5, 99])` then more steps —
+  all of `q`, `tension`, `actuatorTarget` must stay finite.
+
+## Gotchas
+
+- lil-gui buttons are matched by text (`page.getByText('Fist', { exact: true })`);
+  folders must be clicked open before their controls are visible.
+- The page has no test IDs; the HUD table is `#tension-table`, plot is `#plot`.
+- A 404 in console = missing asset only; the app itself logs no errors on a
+  clean run.
