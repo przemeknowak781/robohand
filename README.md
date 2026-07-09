@@ -21,17 +21,24 @@ npm run typecheck      # kontrola typów
 ```
 src/
   sim/            RDZEŃ FIZYKI — czysty TypeScript, ZERO zależności od DOM/Three.js
-    types.ts        typy parametrów, obserwacji i specyfikacji ML
+    types.ts        typy parametrów, obserwacji, specyfikacji ML i fabrykacji (MechParams)
     math3.ts        minimalna algebra 3D (mat3/vec3)
+    mechGeometry.ts geometria fabrykacyjna (płaskowniki, kanały) + limity mechaniczne stawów
     defaultHand.ts  parametryczny builder dłoni (proporcje ludzkie, 14 ścięgien)
     simulator.ts    kinematyka + dynamika + model ścięgien, step API
     presets.ts      mapowanie "curl" palców → akcje ścięgien, gotowe pozy
     recorder.ts     rejestrator datasetów JSONL
-  viz/            wizualizacja Three.js (scena, dłoń, HUD, wykres naprężeń)
+  viz/            wizualizacja Three.js
+    scene.ts        scena, kamera, oświetlenie IBL
+    parts.ts        fabryka brył (płaskowniki, bloki z kanałami, sworznie, płyty)
+    handView.ts     złożenie 3D napędzane FK symulatora + trasowanie ścięgien
+    hud.ts/plot.ts  telemetria naprężeń (tabela + wykres czasowy)
+  export/         eksport STL (złożenie / zestaw części) i DXF (profile płaskowników)
   ui/             panel sterowania (lil-gui), pobieranie plików
   main.ts         pętla stałego kroku czasowego, spięcie całości
 scripts/
-  headless-demo.ts  przykład użycia rdzenia w Node (pętla jak w środowisku RL)
+  headless-demo.ts      przykład użycia rdzenia w Node (pętla jak w środowisku RL)
+  check-tendon-twist.ts  regresja: ciągłość orientacji ścięgien w całym zakresie zgięcia
 ```
 
 Rozdział `sim/` od `viz/` jest celowy: **ten sam kod fizyki** działa w przeglądarce
@@ -72,6 +79,44 @@ Prostowniki mają napięcie wstępne (pretension) i działają jak sprężyny po
 sprzężenie zgięcia stawów wynika naturalnie ze wspólnego prowadzenia ścięgna,
 tak jak w rzeczywistych dłoniach ścięgnowych.
 
+## Projekt mechaniczny (druk 3D / CNC)
+
+Każdy paliczek to realna, fabrykowalna konstrukcja, nie bryła poglądowa:
+
+- **dwa boczne płaskowniki** (stadium: prostokąt + półokrągłe końce) z otworami
+  na sworzeń zawiasu na obu końcach — linki na przemian widelec zewnętrzny/
+  wewnętrzny, żeby sąsiednie ogniwa się zazębiały ze szczeliną montażową,
+- **bloki prowadzące** (dłoniowy + grzbietowy) łączące płaskowniki, z wierconymi
+  kanałami na ścięgna — średnica i głębokość kanału **dokładnie na promieniu
+  ramienia momentu z symulacji fizyki** (ten sam parametr napędza i dynamikę, i
+  geometrię),
+- **sworznie zawiasowe** (styl clevis-pin: trzpień + łepek) łączące kolejne ogniwa,
+- **podkładka opuszka** na ostatnim paliczku każdego palca.
+
+Dłoń (rama, nie „pudełko"): dwie szyny boczne biegnące od nadgarstka do palców,
+**przedni trawers** niosący uchwyty (języczki) palców, i **tylny trawers**
+(belki dłoniowa + grzbietowa z wierconymi kanałami) gdzie kończą się wszystkie
+14 ścięgien — lekka, prosta w druku/wycięciu konstrukcja (4 płaskie części)
+zamiast poprzedniej kanapki z dwóch płyt i dystansów.
+
+**Trasowanie ścięgien** nie idzie prostą cięciwą przez staw (co przy dużym
+zgięciu wcinałoby się w blok prowadzący) — ścięgno owija sworzeń łukiem
+(interpolacja sferyczna orientacji ogniwa poprzedniego → następnego), tak jak
+prawdziwa cięgno robi na bloczku. Rurka 3D ścięgna ma też **własną, jawnie
+liczoną orientację przekroju w każdym punkcie** (z rzeczywistych macierzy
+obrotu stawów), a nie automatyczne "ramki Freneta" z three.js — te potrafią się
+złamać (widoczne jako skręcenie rurki) przy niemal równoległych odcinkach.
+Sprawdzone automatycznym testem regresyjnym (`npm run check:tendon-twist`):
+zamiatanie zgięcia 0→1 dla wszystkich palców, zero nieciągłości orientacji.
+
+**Mechaniczne limity stawów** („collidery" jako zakresy, nie pełna symulacja
+kolizji): maksymalne zgięcie każdego stawu jest przycinane do kąta, przy którym
+bloki prowadzące sąsiednich ogniw geometrycznie by się nie zmieściły (funkcja
+`computeMechJointLimits` w `sim/mechGeometry.ts` — półkąt zajętości bloku
+`atan(głębokość_kanału / odsunięcie_od_sworznia)` po obu stronach stawu). Limit
+ten wchodzi do tej samej sprężyny miękkiego ograniczenia stawu, której już
+używa fizyka — więc wynik jest spójny w symulacji i w wizualizacji.
+
 ## Parametry (panel „RoboHand — controls")
 
 - **Pose presets** — Open / Fist / Pinch / Point / OK sign,
@@ -80,9 +125,13 @@ tak jak w rzeczywistych dłoniach ścięgnowych.
 - **Hand geometry** — skala globalna, długość/grubość palców, promienie bloczków,
 - **Tendon physics** — sztywności zginaczy/prostowników, tłumienie, pretension, próg bezpiecznego naprężenia,
 - **Joints & actuators** — sztywność/tłumienie stawów, stała czasowa i skok aktuatorów,
+- **Mechanical design (fabrication)** — grubość płaskowników, średnica sworznia,
+  luz montażowy, średnica kanału na ścięgno, minimalna ścianka, grubość płyty dłoni,
 - **Environment** — grawitacja (włącznik + wartość g),
 - **Simulation** — pauza, skala czasu, liczba podkroków fizyki, reset pozy,
-- **Data / ML** — nagrywanie datasetu, pobranie `.jsonl` i specyfikacji `.json`.
+- **Data / ML** — nagrywanie datasetu, pobranie `.jsonl` i specyfikacji `.json`,
+- **Export (fabrication)** — STL złożenia w bieżącej pozie, STL zestawu części
+  rozłożonych do druku, DXF profili płaskowników do CNC/lasera.
 
 Zmiany parametrów przebudowują model **na żywo z zachowaniem stanu** (o ile
 topologia stawów/ścięgien się nie zmienia).
@@ -133,7 +182,8 @@ odtwarzalny.
 
 ## Mapa rozwoju
 
-- kontakt i chwytanie obiektów (kolizje palce–obiekt, siły chwytu),
+- kontakt i chwytanie obiektów (kolizje palce–obiekt, siły chwytu) — obecne
+  limity mechaniczne zapobiegają tylko przenikaniu się WŁASNYCH części dłoni,
 - abdukcja/addukcja MCP i kciuka (dodatkowe DOF + ścięgna międzykostne),
 - mostek WebSocket/Python (gymnasium env) nad rdzeniem `sim/`,
 - tarcie ścięgno–bloczek (model Capstan), elastyczność nieliniowa,
