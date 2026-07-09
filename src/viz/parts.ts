@@ -18,7 +18,6 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { FingerParams, MechParams, TendonParams } from '../sim/types';
 
 /** shape-space → link-space: x̂→ŷ (length), ŷ→ẑ (height), ẑ→x̂ (thickness) */
 export const PLATE_QUAT = new THREE.Quaternion().setFromAxisAngle(
@@ -237,77 +236,6 @@ export function roundedRectPlate(
   return { geo, profile };
 }
 
-/** Per-link mechanical layout derived from finger + fabrication params. */
-export interface LinkMech {
-  /** ± center X of each side plate. */
-  plateCx: number;
-  plateT: number;
-  /** Plate height (stadium width). */
-  H: number;
-  /** Clear span between the two plates (guide block width). */
-  G: number;
-  /** Link length (pin to pin / pin to tip). */
-  L: number;
-  /** Stadium end radius. */
-  endR: number;
-  /** Pin hole radius (pin + clearance). */
-  holeR: number;
-  /** Outer overall width at this link. */
-  outerW: number;
-  /** True for outer-fork links (even index). */
-  outer: boolean;
-  /** Guide block start/end along the link Y axis. */
-  guideY0: number;
-  guideY1: number;
-}
-
-export function computeLinkMech(
-  finger: FingerParams,
-  mech: MechParams,
-): LinkMech[] {
-  const t = mech.plateThickness;
-  const clr = mech.hingeClearance;
-  const W0 = 2 * finger.phalanges[0].radius;
-  const gEven = W0 - 2 * t;
-  const links: LinkMech[] = [];
-  for (let i = 0; i < finger.phalanges.length; i++) {
-    const ph = finger.phalanges[i];
-    const outer = i % 2 === 0;
-    const plateCx = outer
-      ? W0 / 2 - t / 2
-      : gEven / 2 - clr - t / 2;
-    const G = outer ? gEven : gEven - 2 * clr - 2 * t;
-    const H = 2 * ph.radius * 0.95;
-    const endR = H / 2;
-    const isLast = i === finger.phalanges.length - 1;
-    const guideY0 = endR + 0.0025;
-    const guideY1 = isLast
-      ? ph.length * 0.72
-      : ph.length - endR - 0.0025;
-    links.push({
-      plateCx,
-      plateT: t,
-      H,
-      G,
-      L: ph.length,
-      endR,
-      holeR: mech.pinDiameter / 2 + clr / 2,
-      outerW: outer ? W0 : gEven - 2 * clr,
-      outer,
-      guideY0,
-      guideY1: Math.max(guideY1, guideY0 + 0.003),
-    });
-  }
-  return links;
-}
-
-/** Lateral channel offset for a tendon within a finger's guide blocks. */
-export function tendonChannelX(
-  tendon: TendonParams,
-  link: LinkMech,
-  hasFds: boolean,
-): number {
-  if (tendon.kind === 'extensor' || !hasFds) return 0;
-  const off = Math.min(0.0022, link.G / 4);
-  return tendon.name.endsWith('.fds') ? off : -off;
-}
+// LinkMech / computeLinkMech / tendonChannelX live in ../sim/mechGeometry —
+// defaultHand.ts needs them too (mechanical joint-limit clamping), and that
+// module must stay THREE.js-free, so the geometry math moved there.

@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "demo:headless": "tsx scripts/headless-demo.ts"
+    "demo:headless": "tsx scripts/headless-demo.ts",
+    "check:tendon-twist": "tsx scripts/check-tendon-twist.ts"
   },
   "dependencies": {
     "lil-gui": "^0.19.2",

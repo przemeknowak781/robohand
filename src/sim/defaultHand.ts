@@ -17,10 +17,12 @@ import type {
   FingerParams,
   HandParams,
   JointParams,
+  MechParams,
   PhalanxParams,
   TendonParams,
   TendonRouting,
 } from './types';
+import { computeLinkMech, computeMechJointLimits } from './mechGeometry';
 
 /** High-level knobs exposed in the UI; everything else derives from these. */
 export interface HandTunables {
@@ -162,7 +164,7 @@ const FINGER_SPECS: FingerSpec[] = [
 const JOINT_NAMES_FINGER = ['mcp', 'pip', 'dip'];
 const JOINT_NAMES_THUMB = ['cmc', 'mp', 'ip'];
 
-function buildFinger(spec: FingerSpec, t: HandTunables): FingerParams {
+function buildFinger(spec: FingerSpec, t: HandTunables, mech: MechParams): FingerParams {
   const s = t.scale;
   const isThumb = spec.name === 'thumb';
   const jointNames = isThumb ? JOINT_NAMES_THUMB : JOINT_NAMES_FINGER;
@@ -180,15 +182,6 @@ function buildFinger(spec: FingerSpec, t: HandTunables): FingerParams {
     };
   });
 
-  const joints: JointParams[] = spec.lengths.map((_, i) => ({
-    name: `${spec.name}.${jointNames[i]}`,
-    minAngle: i === 0 ? -0.20 : -0.05,
-    maxAngle: spec.maxFlex[i],
-    restAngle: 0.15,
-    passiveStiffness: t.passiveStiffness,
-    passiveDamping: t.passiveDamping,
-  }));
-
   const armScale = s * t.momentArmMul;
   const flexRouting: TendonRouting[] = spec.flexArms.map((r, i) => ({
     jointIndex: i,
@@ -199,6 +192,27 @@ function buildFinger(spec: FingerSpec, t: HandTunables): FingerParams {
     jointIndex: i,
     momentArm: r * armScale,
     sign: -1 as const,
+  }));
+
+  // Mechanical joint-limit "colliders": clamp each joint's max flexion to
+  // whatever the printed guide blocks can actually reach before the block
+  // on this link and the block on the next link would sweep into each
+  // other — a real geometric constraint, not just an anthropomorphic guess.
+  const links = computeLinkMech(phalanges, mech);
+  const flexArmAtJoint = spec.lengths.map((_, i) => {
+    let m = 0;
+    for (const r of flexRouting) if (r.jointIndex === i) m = Math.max(m, r.momentArm);
+    return m;
+  });
+  const mechLimits = computeMechJointLimits(links, flexArmAtJoint, mech);
+
+  const joints: JointParams[] = spec.lengths.map((_, i) => ({
+    name: `${spec.name}.${jointNames[i]}`,
+    minAngle: i === 0 ? -0.20 : -0.05,
+    maxAngle: Math.min(spec.maxFlex[i], mechLimits[i]),
+    restAngle: 0.15,
+    passiveStiffness: t.passiveStiffness,
+    passiveDamping: t.passiveDamping,
   }));
 
   const excursion = (routing: TendonRouting[]) =>
@@ -267,6 +281,14 @@ export function buildHandParams(
 ): HandParams {
   const t: HandTunables = { ...DEFAULT_TUNABLES, ...tunables };
   const s = t.scale;
+  const mech: MechParams = {
+    plateThickness: t.plateThickness * s,
+    pinDiameter: t.pinDiameter * s,
+    hingeClearance: t.hingeClearance * s,
+    channelDiameter: t.channelDiameter * s,
+    guideWall: t.guideWall * s,
+    palmPlateThickness: t.palmPlateThickness * s,
+  };
   return {
     name: 'robohand-v1',
     scale: s,
@@ -275,14 +297,7 @@ export function buildHandParams(
     gravityEnabled: t.gravityEnabled,
     limitStiffness: 0.6,
     limitDamping: 0.01,
-    mech: {
-      plateThickness: t.plateThickness * s,
-      pinDiameter: t.pinDiameter * s,
-      hingeClearance: t.hingeClearance * s,
-      channelDiameter: t.channelDiameter * s,
-      guideWall: t.guideWall * s,
-      palmPlateThickness: t.palmPlateThickness * s,
-    },
-    fingers: FINGER_SPECS.map((spec) => buildFinger(spec, t)),
+    mech,
+    fingers: FINGER_SPECS.map((spec) => buildFinger(spec, t, mech)),
   };
 }
