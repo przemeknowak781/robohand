@@ -7,12 +7,17 @@ import GUI from 'lil-gui';
 import type { HandSimulator } from '../sim/simulator';
 import type { HandTunables } from '../sim/defaultHand';
 import { POSE_PRESETS, curlsToAction, FingerCurls } from '../sim/presets';
+import { ANIMATION_PRESETS, type AnimationPreset } from '../sim/animations';
 import type { DatasetRecorder } from '../sim/recorder';
 import { downloadText } from './download';
 
 export interface RunState {
   paused: boolean;
   timeScale: number;
+  /** Looping animation currently driving the curls, or null for manual control. */
+  activeAnimation: AnimationPreset | null;
+  /** sim.time when activeAnimation was selected (animation's t=0). */
+  animationStartTime: number;
 }
 
 export interface PanelDeps {
@@ -45,6 +50,7 @@ export class ControlPanel {
 
     this.buildPresets();
     this.buildCurls();
+    this.buildAnimations();
     this.buildTendonTargets();
     this.buildParameters();
     this.buildSimulation();
@@ -56,6 +62,7 @@ export class ControlPanel {
   }
 
   private applyCurls(): void {
+    this.deps.runState.activeAnimation = null; // manual control overrides any loop
     const action = curlsToAction(this.deps.sim, this.curls);
     this.deps.sim.setAction(action);
     this.syncTendonTargetsFromSim();
@@ -111,6 +118,7 @@ export class ControlPanel {
       this.tendonTargets[name] = 0;
       this.tendonControllers.push(
         folder.add(this.tendonTargets, name, 0, 1, 0.01).onChange((v: number) => {
+          this.deps.runState.activeAnimation = null;
           const a = sim.getAction();
           a[i] = v;
           sim.setAction(a);
@@ -177,13 +185,36 @@ export class ControlPanel {
     env.add(t, 'gravityZ', -25, 0, 0.1).name('g [m/s²]').onFinishChange(changed);
   }
 
+  private buildAnimations(): void {
+    const folder = this.gui.addFolder('Animation loops');
+    const { sim, runState } = this.deps;
+    for (const preset of ANIMATION_PRESETS) {
+      folder.add({
+        f: () => {
+          runState.activeAnimation = preset;
+          runState.animationStartTime = sim.time;
+        },
+      }, 'f').name(`▶ ${preset.name}`);
+    }
+    folder.add({
+      f: () => {
+        runState.activeAnimation = null;
+      },
+    }, 'f').name('■ stop (manual control)');
+  }
+
   private buildSimulation(): void {
     const folder = this.gui.addFolder('Simulation');
     folder.close();
     folder.add(this.deps.runState, 'paused');
     folder.add(this.deps.runState, 'timeScale', 0.1, 3, 0.05).name('time scale');
     folder.add(this.deps.sim.config, 'substeps', 2, 32, 1).name('physics substeps');
-    folder.add({ reset: () => this.deps.onResetPose() }, 'reset').name('reset pose');
+    folder.add({
+      reset: () => {
+        this.deps.runState.activeAnimation = null;
+        this.deps.onResetPose();
+      },
+    }, 'reset').name('reset pose');
   }
 
   private buildData(): void {
@@ -232,5 +263,6 @@ export class ControlPanel {
     if (this.deps.recorder.active) {
       this.recInfo.status = `recording… (${this.deps.recorder.steps})`;
     }
+    if (this.deps.runState.activeAnimation) this.syncTendonTargetsFromSim();
   }
 }

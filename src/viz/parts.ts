@@ -34,15 +34,6 @@ export const PIN_QUAT = new THREE.Quaternion().setFromAxisAngle(
   new THREE.Vector3(0, 1, 0),
   Math.PI / 2,
 );
-/** extra shape-space Z flip (for lugs that extend toward −Y). */
-const SHAPE_Z_PI = new THREE.Quaternion().setFromAxisAngle(
-  new THREE.Vector3(0, 0, 1),
-  Math.PI,
-);
-export const LUG_QUAT = new THREE.Quaternion().multiplyQuaternions(
-  PLATE_QUAT,
-  SHAPE_Z_PI,
-);
 
 /** 2D profile of a flat part, for DXF/CNC export (meters, part frame). */
 export interface PlateProfile {

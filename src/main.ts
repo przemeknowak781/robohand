@@ -25,7 +25,12 @@ const sim = new HandSimulator(buildHandParams(tunables), {
   ...DEFAULT_SIM_CONFIG,
 });
 const recorder = new DatasetRecorder();
-const runState: RunState = { paused: false, timeScale: 1 };
+const runState: RunState = {
+  paused: false,
+  timeScale: 1,
+  activeAnimation: null,
+  animationStartTime: 0,
+};
 
 const container = document.getElementById('app')!;
 const sceneMgr = new SceneManager(container);
@@ -89,6 +94,11 @@ function frame(now: number): void {
     const dt = sim.config.controlDt;
     let steps = 0;
     while (accumulator >= dt && steps < 6) {
+      if (runState.activeAnimation) {
+        const elapsed = sim.time - runState.animationStartTime;
+        const curls = runState.activeAnimation.curlsAt(elapsed);
+        sim.setAction(curlsToAction(sim, curls));
+      }
       sim.step();
       recorder.record(sim.getAction(), sim.getObservation());
       plot.sample();
