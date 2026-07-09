@@ -50,6 +50,14 @@ Dev server alternative: `npm run dev` (port 5173).
 - **Data / ML folder**: record start → stop → "download dataset (.jsonl)";
   intercept with Playwright's `download` event. Line 1 is
   `{"type":"spec",...}` with `actionSpace.shape[0] === 14`.
+- **Animation loops folder**: click e.g. "▶ Grasp cycle" → `sim.q` keeps
+  changing every frame without further input (poll `sim.getAction()`
+  before/after, not `sim.q` — q keeps drifting briefly after stop from
+  spring relaxation, that's expected, not a bug). Click "■ stop (manual
+  control)" → `sim.getAction()` freezes immediately (compare two samples a
+  few hundred ms apart, expect bit-identical). Any pose preset / curl
+  slider / tendon actuator interaction should also silently cancel a
+  running animation.
 - **Hand geometry → global scale**: fill the number input + Enter
   (onFinishChange) → live rebuild must preserve pose/time and stay finite.
 - Robustness probe: `sim.step([NaN, Infinity, -5, 99])` then more steps —

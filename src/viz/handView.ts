@@ -25,7 +25,7 @@
  */
 
 import * as THREE from 'three';
-import type { FingerParams, HandParams } from '../sim/types';
+import type { FingerParams, HandParams, MechParams } from '../sim/types';
 import type { HandSimulator, FKFrame } from '../sim/simulator';
 import { mat3FromEulerXYZ, type Mat3 } from '../sim/math3';
 import {
@@ -40,7 +40,6 @@ import {
   PLATE_QUAT,
   GUIDE_QUAT,
   PIN_QUAT,
-  LUG_QUAT,
   roundedRectPlate,
   stadiumPlate,
   tipPad,
@@ -196,38 +195,67 @@ export class HandView {
 
     // per-finger tongue lugs, pinned to the front crossbar
     params.fingers.forEach((finger) => {
-      const links = computeLinkMech(finger.phalanges, mech);
-      const clr = mech.hingeClearance;
-      const tongueW = links[0].G - 2 * clr;
-      const lugLen = 0.024 * s;
-      const lugEndR = links[0].endR * 0.9; // nests inside link0's fork
-      const name = `${finger.name}/palm-lug`;
-      const { geo, profile } = stadiumPlate(
-        lugLen,
-        Math.min(lugEndR, links[0].endR),
-        links[0].holeR,
-        boltR, // mounting hole at the buried end
-        tongueW,
-        name,
-      );
-      const base = new THREE.Group();
-      base.position.fromArray(finger.basePosition);
-      const m = mat3FromEulerXYZ(finger.baseEulerXYZ);
-      tmpM4.set(
-        m[0], m[3], m[6], 0,
-        m[1], m[4], m[7], 0,
-        m[2], m[5], m[8], 0,
-        0, 0, 0, 1,
-      );
-      base.quaternion.setFromRotationMatrix(tmpM4);
-      const mesh = new THREE.Mesh(geo, PALM_MAT);
-      mesh.quaternion.copy(LUG_QUAT); // stadium extends toward local −Y
-      mesh.position.x = -tongueW / 2; // center extrusion on the finger plane
-      mesh.castShadow = true;
-      base.add(mesh);
-      this.partsRoot.add(base);
-      this.manifest.register(name, geo, 1, profile);
+      this.buildFingerLug(finger, mech, cx, boltR);
     });
+  }
+
+  /**
+   * Tongue lug mounting a finger's CMC/MCP hinge to the front crossbar.
+   *
+   * The lug's material can extend in any direction perpendicular to the
+   * hinge axis — that choice is purely structural, it doesn't affect the
+   * joint. For four fingers, "backward along the finger's own frame"
+   * happens to be safe because their base frames are barely rotated. The
+   * thumb's base is tilted so far (for opposition) that the very same
+   * choice sends the lug's material straight through the tendon bundle
+   * the other four fingers route through the frame's interior — that was
+   * the visible collision. So the extend direction is picked explicitly:
+   * take the finger's own "backward" direction, projected perpendicular
+   * to the hinge axis, and flip it if — and only if — it would otherwise
+   * carry the lug toward the frame's centerline instead of away from it.
+   * For the four normal fingers that projection is already small and
+   * away from center, so the flip never triggers; only the thumb's
+   * heavily tilted frame crosses the (deliberately generous) threshold.
+   */
+  private buildFingerLug(
+    finger: FingerParams,
+    mech: MechParams,
+    cx: number,
+    boltR: number,
+  ): void {
+    const s = this.sim.params.scale;
+    const links = computeLinkMech(finger.phalanges, mech);
+    const clr = mech.hingeClearance;
+    const tongueW = links[0].G - 2 * clr;
+    const lugLen = 0.024 * s;
+    const lugEndR = links[0].endR * 0.9; // nests inside link0's fork
+    const name = `${finger.name}/palm-lug`;
+    const { geo, profile } = stadiumPlate(
+      lugLen,
+      Math.min(lugEndR, links[0].endR),
+      links[0].holeR,
+      boltR, // mounting hole at the buried end
+      tongueW,
+      name,
+    );
+
+    const m = mat3FromEulerXYZ(finger.baseEulerXYZ);
+    const hingeAxis = new THREE.Vector3(m[0], m[1], m[2]).normalize();
+    const negY = new THREE.Vector3(-m[3], -m[4], -m[5]);
+    const extend = negY.sub(hingeAxis.clone().multiplyScalar(negY.dot(hingeAxis))).normalize();
+    const towardCenter = Math.sign(cx - finger.basePosition[0]);
+    if (Math.abs(extend.x) > 0.3 && Math.sign(extend.x) === towardCenter) extend.negate();
+    const sideAxis = hingeAxis.clone().cross(extend);
+    const basis = new THREE.Matrix4().makeBasis(extend, sideAxis, hingeAxis);
+
+    const mesh = new THREE.Mesh(geo, PALM_MAT);
+    mesh.quaternion.setFromRotationMatrix(basis);
+    mesh.position
+      .set(finger.basePosition[0], finger.basePosition[1], finger.basePosition[2])
+      .addScaledVector(hingeAxis, -tongueW / 2);
+    mesh.castShadow = true;
+    this.partsRoot.add(mesh);
+    this.manifest.register(name, geo, 1, profile);
   }
 
   /** Rear crossbar: drilled palmar/dorsal bars where every tendon ends. */

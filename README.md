@@ -27,6 +27,7 @@ src/
     defaultHand.ts  parametryczny builder dłoni (proporcje ludzkie, 14 ścięgien)
     simulator.ts    kinematyka + dynamika + model ścięgien, step API
     presets.ts      mapowanie "curl" palców → akcje ścięgien, gotowe pozy
+    animations.ts   zapętlone presety animacji (funkcje czasu → curls)
     recorder.ts     rejestrator datasetów JSONL
   viz/            wizualizacja Three.js
     scene.ts        scena, kamera, oświetlenie IBL
@@ -99,6 +100,20 @@ Dłoń (rama, nie „pudełko"): dwie szyny boczne biegnące od nadgarstka do pa
 14 ścięgien — lekka, prosta w druku/wycięciu konstrukcja (4 płaskie części)
 zamiast poprzedniej kanapki z dwóch płyt i dystansów.
 
+**Mocowanie kciuka** jest budowane inaczej niż pozostałych 4 palców. Kciuk
+opozycyjny ma bazową rotację przechyloną tak mocno (żeby przy zgięciu
+naturalnie krzyżował się z palcami), że gdyby jego języczek mocujący
+„wystawał" w tym samym kierunku co u zwykłych palców (prosto do tyłu w jego
+własnej, mocno obróconej ramce), materiał tego języczka wjeżdżałby wprost w
+wiązkę ścięgien pozostałych palców przechodzącą przez wnętrze ramy — dokładnie
+to było widać jako kolizję. Kierunek, w którym języczek faktycznie wystaje, to
+czysto konstrukcyjny wybór niezwiązany z kinematyką stawu (musi tylko
+współdzielić oś zawiasu) — więc dla każdego palca liczony jest kierunek
+„do tyłu" rzutowany prostopadle do osi zawiasu, i odwracany tylko wtedy, gdy
+inaczej niósłby języczek w stronę osi symetrii dłoni zamiast od niej. Dla 4
+zwykłych palców (niemal zerowa rotacja bazowa) reguła nic nie zmienia; dla
+kciuka odwraca kierunek, wyprowadzając języczek bezpiecznie na zewnątrz szyny.
+
 **Trasowanie ścięgien** nie idzie prostą cięciwą przez staw (co przy dużym
 zgięciu wcinałoby się w blok prowadzący) — ścięgno owija sworzeń łukiem
 (interpolacja sferyczna orientacji ogniwa poprzedniego → następnego), tak jak
@@ -119,8 +134,15 @@ używa fizyka — więc wynik jest spójny w symulacji i w wizualizacji.
 
 ## Parametry (panel „RoboHand — controls")
 
-- **Pose presets** — Open / Fist / Pinch / Point / OK sign,
+- **Pose presets** — Open / Fist / Pinch / Point / OK sign (statyczne),
 - **Finger curl** — zadawanie zgięcia per palec (mapowane na antagonistyczne pary ścięgien),
+- **Animation loops** — zapętlone, ciągłe w czasie sekwencje zgięć:
+  Grasp cycle (rytmiczne zaciskanie/otwieranie), Finger wave (fala palców
+  z opóźnieniem fazowym index→pinky), Piano tap (niezależne stukanie każdym
+  palcem), Pinch cycle (cykliczny szczypiec kciuk-wskazujący). Każda animacja
+  to czysta funkcja czasu (`src/sim/animations.ts`), więc działa też headless.
+  Dowolna ręczna zmiana (preset, suwak, aktuator) zatrzymuje aktywną animację,
+  „■ stop" wraca do sterowania ręcznego bez zmiany bieżącej pozy,
 - **Tendon actuators (advanced)** — bezpośrednie zadawanie 14 aktuatorów (0–1),
 - **Hand geometry** — skala globalna, długość/grubość palców, promienie bloczków,
 - **Tendon physics** — sztywności zginaczy/prostowników, tłumienie, pretension, próg bezpiecznego naprężenia,
