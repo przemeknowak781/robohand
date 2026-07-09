@@ -82,6 +82,28 @@ export interface FingerParams {
   tendons: TendonParams[];
 }
 
+/**
+ * Fabrication parameters for the printable/CNC mechanical design.
+ * Each phalanx link = two flat side plates (hinge holes at both ends)
+ * joined by palmar/dorsal guide blocks with drilled tendon channels;
+ * links alternate outer-fork / inner-fork and are pinned together.
+ * All dimensions in meters (already multiplied by the global scale).
+ */
+export interface MechParams {
+  /** Side plate (flat bar) thickness [m]. */
+  plateThickness: number;
+  /** Hinge pin diameter [m] (e.g. 3 mm ≈ M3 shaft). */
+  pinDiameter: number;
+  /** Radial/axial clearance for hinges and fork nesting [m]. */
+  hingeClearance: number;
+  /** Drilled tendon channel diameter [m]. */
+  channelDiameter: number;
+  /** Minimum wall around tendon channels [m]. */
+  guideWall: number;
+  /** Palm chassis plate thickness [m]. */
+  palmPlateThickness: number;
+}
+
 export interface HandParams {
   name: string;
   /** Global geometric scale multiplier. */
@@ -92,6 +114,7 @@ export interface HandParams {
   /** Joint-limit penalty stiffness [N·m/rad] and damping [N·m·s/rad]. */
   limitStiffness: number;
   limitDamping: number;
+  mech: MechParams;
   fingers: FingerParams[];
 }
 

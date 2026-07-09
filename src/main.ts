@@ -13,6 +13,12 @@ import { HandView } from './viz/handView';
 import { TensionHud } from './viz/hud';
 import { TensionPlot } from './viz/plot';
 import { ControlPanel, RunState } from './ui/panel';
+import {
+  exportAssemblySTL,
+  exportPartsKitSTL,
+  exportPlatesDXF,
+} from './export/exporters';
+import { downloadBinary, downloadText } from './ui/download';
 
 const tunables: HandTunables = { ...DEFAULT_TUNABLES };
 const sim = new HandSimulator(buildHandParams(tunables), {
@@ -46,6 +52,19 @@ const panel = new ControlPanel({
   onResetPose: () => {
     sim.reset();
     panel.syncTendonTargetsFromSim();
+  },
+  onExportAssemblySTL: () => {
+    downloadBinary('robohand-assembly.stl', exportAssemblySTL(handView.partsRoot));
+  },
+  onExportPartsKitSTL: () => {
+    downloadBinary('robohand-parts-kit.stl', exportPartsKitSTL(handView.manifest));
+  },
+  onExportPlatesDXF: () => {
+    downloadText(
+      'robohand-plates.dxf',
+      exportPlatesDXF(handView.manifest.profiles()),
+      'application/dxf',
+    );
   },
 });
 

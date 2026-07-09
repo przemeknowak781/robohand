@@ -23,6 +23,10 @@ export interface PanelDeps {
   /** Rebuild params from tunables and push into sim + views. */
   onTunablesChanged: () => void;
   onResetPose: () => void;
+  /** Fabrication exports (STL assembly / STL parts kit / DXF profiles). */
+  onExportAssemblySTL: () => void;
+  onExportPartsKitSTL: () => void;
+  onExportPlatesDXF: () => void;
 }
 
 export class ControlPanel {
@@ -140,6 +144,32 @@ export class ControlPanel {
     joints.add(t, 'passiveDamping', 0, 0.05, 0.0005).name('joint c [N·m·s/rad]').onFinishChange(changed);
     joints.add(t, 'actuatorTimeConstant', 0.01, 0.5, 0.005).name('actuator τ [s]').onFinishChange(changed);
     joints.add(t, 'actuatorMaxPullMul', 0.5, 2, 0.05).name('actuator travel ×').onFinishChange(changed);
+
+    const mech = this.gui.addFolder('Mechanical design (fabrication)');
+    mech.close();
+    const mm = (v: number) => v * 1000;
+    const asMm = (obj: HandTunables, key: keyof HandTunables, min: number, max: number, step: number, label: string) => {
+      const proxy = { [key]: mm(obj[key] as number) };
+      mech.add(proxy, key as string, min, max, step).name(label)
+        .onFinishChange((v: number) => {
+          (obj[key] as number) = v / 1000;
+          changed();
+        });
+    };
+    asMm(t, 'plateThickness', 1.5, 5, 0.1, 'plate thickness [mm]');
+    asMm(t, 'pinDiameter', 2, 6, 0.1, 'hinge pin ⌀ [mm]');
+    asMm(t, 'hingeClearance', 0.1, 1, 0.05, 'fit clearance [mm]');
+    asMm(t, 'channelDiameter', 1.5, 5, 0.1, 'tendon channel ⌀ [mm]');
+    asMm(t, 'guideWall', 0.6, 3, 0.1, 'min wall [mm]');
+    asMm(t, 'palmPlateThickness', 2, 5, 0.1, 'palm plate [mm]');
+
+    const fab = this.gui.addFolder('Export (fabrication)');
+    fab.add({ f: () => this.deps.onExportAssemblySTL() }, 'f')
+      .name('STL — assembly (current pose)');
+    fab.add({ f: () => this.deps.onExportPartsKitSTL() }, 'f')
+      .name('STL — parts kit (print layout)');
+    fab.add({ f: () => this.deps.onExportPlatesDXF() }, 'f')
+      .name('DXF — plate profiles (CNC)');
 
     const env = this.gui.addFolder('Environment');
     env.close();

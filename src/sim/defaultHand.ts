@@ -39,6 +39,13 @@ export interface HandTunables {
   gravityEnabled: boolean;
   gravityZ: number; // m/s², applied along -Z when negative
   maxSafeTension: number; // N
+  // fabrication (printable/CNC mechanical design)
+  plateThickness: number;    // m
+  pinDiameter: number;       // m
+  hingeClearance: number;    // m
+  channelDiameter: number;   // m
+  guideWall: number;         // m
+  palmPlateThickness: number; // m
 }
 
 export const DEFAULT_TUNABLES: HandTunables = {
@@ -57,6 +64,12 @@ export const DEFAULT_TUNABLES: HandTunables = {
   gravityEnabled: true,
   gravityZ: -9.81,
   maxSafeTension: 60,
+  plateThickness: 0.0025,
+  pinDiameter: 0.003,
+  hingeClearance: 0.0004,
+  channelDiameter: 0.003,
+  guideWall: 0.0012,
+  palmPlateThickness: 0.003,
 };
 
 interface FingerSpec {
@@ -83,7 +96,7 @@ const FINGER_SPECS: FingerSpec[] = [
     radius: 0.0105,
     baseX: -0.044,
     baseY: -0.005,
-    baseZ: -0.010,
+    baseZ: -0.006,
     // opposed thumb: swung toward -X in the palm plane, tilted palmar (-Z);
     // flexion then curls the tip across the palm toward the fingers
     baseEuler: [0, -0.45, 0.95],
@@ -257,11 +270,19 @@ export function buildHandParams(
   return {
     name: 'robohand-v1',
     scale: s,
-    palm: { width: 0.085 * s, length: 0.095 * s, thickness: 0.022 * s },
+    palm: { width: 0.085 * s, length: 0.095 * s, thickness: 0.018 * s },
     gravity: [0, 0, t.gravityEnabled ? t.gravityZ : 0],
     gravityEnabled: t.gravityEnabled,
     limitStiffness: 0.6,
     limitDamping: 0.01,
+    mech: {
+      plateThickness: t.plateThickness * s,
+      pinDiameter: t.pinDiameter * s,
+      hingeClearance: t.hingeClearance * s,
+      channelDiameter: t.channelDiameter * s,
+      guideWall: t.guideWall * s,
+      palmPlateThickness: t.palmPlateThickness * s,
+    },
     fingers: FINGER_SPECS.map((spec) => buildFinger(spec, t)),
   };
 }
