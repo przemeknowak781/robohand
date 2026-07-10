@@ -138,7 +138,9 @@ requestAnimationFrame(frame);
 
 // --- programmatic / ML access ----------------------------------------------
 // Expose the simulator for external harnesses (e.g. RL driving the sim from
-// a WebSocket bridge or Playwright): window.robohand.sim.step([...14 actions])
+// a WebSocket bridge or Playwright): window.robohand.sim.step([...14 actions]).
+// scene/camera are exposed so a harness (or a screenshot script) can frame a
+// specific part without hand-driving OrbitControls.
 declare global {
   interface Window {
     robohand: {
@@ -147,6 +149,8 @@ declare global {
       curlsToAction: typeof curlsToAction;
       presets: typeof POSE_PRESETS;
       setCurls: (curls: Record<string, number>) => void;
+      scene: SceneManager;
+      view: HandView;
     };
   }
 }
@@ -156,6 +160,8 @@ window.robohand = {
   recorder,
   curlsToAction,
   presets: POSE_PRESETS,
+  scene: sceneMgr,
+  view: handView,
   setCurls: (curls) => {
     sim.setAction(curlsToAction(sim, curls));
     panel.syncTendonTargetsFromSim();

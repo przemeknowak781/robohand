@@ -114,6 +114,16 @@ inaczej niósłby języczek w stronę osi symetrii dłoni zamiast od niej. Dla 4
 zwykłych palców (niemal zerowa rotacja bazowa) reguła nic nie zmienia; dla
 kciuka odwraca kierunek, wyprowadzając języczek bezpiecznie na zewnątrz szyny.
 
+Sam **model wspornika kciuka jest inny** niż płaski języczek pozostałych
+palców (`thumbBracket` vs `stadiumPlate`): przy złożonym kącie kciuka symetryczny
+języczek albo wystawał poza ramę, albo kolidował. Dedykowany wspornik ma:
+(1) **piastę zawiasu z otworem na sworzeń** (bolec) w osi stawu CMC,
+(2) **dłoniowy występ z wierconym otworem-prowadnicą na cięgno** (FPL) — otwór
+leży dokładnie na promieniu ramienia momentu, więc cięgno owijające sworzeń
+przechodzi przez niego, a część pełni rolę prowadnicy cięgna,
+(3) **ścięte, płaskie lico montażowe** (zamiast okrągłej „czapki"), które
+dosiada do ramy zamiast w nią wchodzić.
+
 **Trasowanie ścięgien** nie idzie prostą cięciwą przez staw (co przy dużym
 zgięciu wcinałoby się w blok prowadzący) — ścięgno owija sworzeń łukiem
 (interpolacja sferyczna orientacji ogniwa poprzedniego → następnego), tak jak
