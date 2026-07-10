@@ -37,11 +37,13 @@ import {
   guideBlock,
   hingePin,
   PartsManifest,
+  type PlateProfile,
   PLATE_QUAT,
   GUIDE_QUAT,
   PIN_QUAT,
   roundedRectPlate,
   stadiumPlate,
+  thumbBracket,
   tipPad,
 } from './parts';
 
@@ -230,14 +232,40 @@ export class HandView {
     const lugLen = 0.024 * s;
     const lugEndR = links[0].endR * 0.9; // nests inside link0's fork
     const name = `${finger.name}/palm-lug`;
-    const { geo, profile } = stadiumPlate(
-      lugLen,
-      Math.min(lugEndR, links[0].endR),
-      links[0].holeR,
-      boltR, // mounting hole at the buried end
-      tongueW,
-      name,
-    );
+    const isThumb = finger.name === 'thumb';
+
+    let geo: THREE.BufferGeometry;
+    let profile: PlateProfile;
+    if (isThumb) {
+      // dedicated bracket: chamfered mount face + drilled tendon guide,
+      // placed at the FPL tendon's own radius so the cable threads it
+      const flex = finger.tendons.find((t) => t.kind === 'flexor');
+      const tendonY = flex?.routing.find((r) => r.jointIndex === 0)?.momentArm
+        ?? links[0].endR;
+      const chR = mech.channelDiameter / 2;
+      const lobeR = chR + mech.guideWall * 1.6;
+      ({ geo, profile } = thumbBracket(
+        lugLen,
+        Math.min(lugEndR, links[0].endR),
+        links[0].holeR,          // bolec (hinge pin hole)
+        tendonY,                 // palmar offset of the tendon guide
+        chR,                     // cięgno (tendon channel hole)
+        lobeR,
+        lugEndR * 1.1,           // chamfer depth of the mount face
+        -links[0].endR * 0.15,   // arm underside height at the mount
+        tongueW,
+        name,
+      ));
+    } else {
+      ({ geo, profile } = stadiumPlate(
+        lugLen,
+        Math.min(lugEndR, links[0].endR),
+        links[0].holeR,
+        boltR, // mounting hole at the buried end
+        tongueW,
+        name,
+      ));
+    }
 
     const m = mat3FromEulerXYZ(finger.baseEulerXYZ);
     const hingeAxis = new THREE.Vector3(m[0], m[1], m[2]).normalize();

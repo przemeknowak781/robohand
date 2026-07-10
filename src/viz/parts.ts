@@ -129,6 +129,90 @@ export function stadiumPlate(
 }
 
 /**
+ * Dedicated thumb mounting bracket — distinct from the plain finger lug.
+ *
+ * The opposed thumb's hinge sits at a compound angle to the frame, so a
+ * symmetric stadium lug either pokes past the frame or fouls the other
+ * fingers' tendon bundle. This bracket instead has:
+ *   - a hinge boss with the pin hole (bolec) at the joint (local origin),
+ *   - a palmar lobe carrying a drilled through-hole the FPL tendon (cięgno)
+ *     threads as it wraps the CMC pin — so the part doubles as a tendon
+ *     guide, exactly where the tendon runs (local y = −tendonY),
+ *   - an arm reaching the frame that ends in a flat CHAMFERED mount face
+ *     ("ścięcie") instead of a round cap, so it seats against the frame.
+ *
+ * Local frame (same convention as stadiumPlate): shape XY, extruded +Z by
+ * `thickness`; x is the length toward the frame, y is height (−y = palmar).
+ */
+export function thumbBracket(
+  length: number,
+  endR: number,
+  hingeHoleR: number,
+  tendonY: number,
+  tendonHoleR: number,
+  lobeR: number,
+  chamfer: number,
+  mountBot: number,
+  thickness: number,
+  label: string,
+): { geo: THREE.BufferGeometry; profile: PlateProfile } {
+  const shape = new THREE.Shape();
+  const pts: { x: number; y: number }[] = [];
+  const push = (x: number, y: number) => pts.push({ x, y });
+  const arc = (
+    cx: number, cy: number, r: number,
+    a0: number, a1: number, steps: number,
+  ) => {
+    for (let i = 0; i <= steps; i++) {
+      const a = a0 + (a1 - a0) * (i / steps);
+      push(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+  };
+  const D = Math.PI / 180;
+
+  // CCW outline (interior on the left):
+  // hinge boss top-right → over the top → down the back to the lobe junction
+  arc(0, 0, endR, 20 * D, 235 * D, 22);
+  // down to the palmar lobe, around its underside, back up to the arm front
+  arc(0, -tendonY, lobeR, 235 * D, 305 * D, 14);
+  // arm underside up to the front (frame) edge
+  push(length, mountBot);
+  // front face, then the chamfered mount corner ("ścięcie")
+  push(length, endR - chamfer);
+  push(length - chamfer, endR);
+  // top edge back to the hinge boss start
+  push(endR * Math.cos(20 * D), endR * Math.sin(20 * D));
+
+  shape.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+  shape.closePath();
+
+  const circles: { x: number; y: number; r: number }[] = [];
+  const addHole = (x: number, y: number, r: number) => {
+    const h = new THREE.Path();
+    h.absarc(x, y, r, 0, Math.PI * 2, true);
+    shape.holes.push(h);
+    circles.push({ x, y, r });
+  };
+  addHole(0, 0, hingeHoleR);          // bolec (hinge pin)
+  addHole(0, -tendonY, tendonHoleR);  // cięgno (FPL tendon guide)
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness,
+    bevelEnabled: false,
+    curveSegments: 20,
+  });
+  const profile: PlateProfile = {
+    label,
+    outline: pts.slice(),
+    circles,
+    thickness,
+    count: 1,
+  };
+  return { geo, profile };
+}
+
+/**
  * Guide block: rectangular cross-section (shape X = link height Z,
  * shape Y = link width X) with drilled tendon channels, extruded along the
  * link length. Channels run parallel to the extrusion (vertical in print).
